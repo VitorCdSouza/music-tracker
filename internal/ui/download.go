@@ -14,10 +14,10 @@ var progressRegex = regexp.MustCompile(`Total Query Progress:\s*(\d+)/(\d+)`)
 
 type DownloadModel struct {
 	lines   []string
-	err     error
 	done    bool
 	progBar progress.Model
 	percent float64
+	err     error
 }
 
 func NewDownloadModel() DownloadModel {

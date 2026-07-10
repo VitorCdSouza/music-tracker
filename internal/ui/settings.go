@@ -95,7 +95,7 @@ func (model SettingsModel) View() string {
 	labels := []string{"caminho:", "formato:", "qualidade:"}
 
 	for i := range model.inputs {
-		sb.WriteString(fmt.Sprintf("%-20s %s\n", labels[i], model.inputs[i].View()))
+		fmt.Fprintf(&sb, "%-20s %s\n", labels[i], model.inputs[i].View())
 	}
 
 	sb.WriteString("\n[j/k] navegar | [ctrl+s] salvar")

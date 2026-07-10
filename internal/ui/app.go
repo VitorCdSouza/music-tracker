@@ -46,7 +46,7 @@ func NewAppModel(cfg config.AppConfig) AppModel {
 		navbar:   NewNavbarModel(),
 		search:   NewSearchModel(),
 		download: NewDownloadModel(),
-		files:    NewFilesModel(),
+		files:    NewFilesModel(cfg.DownloadPath),
 		settings: NewSettingsModel(cfg),
 		config:   cfg,
 		lineChan: make(chan string),
@@ -89,6 +89,10 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if int(model.current) < len(model.navbar.Tabs)-1 {
 					model.current = screen(int(model.current) + 1)
 				}
+
+				if model.current == screenFiles {
+					model.files = model.files.Reload()
+				}
 				return model, nil
 			case "H":
 				if model.current > 0 {
@@ -100,7 +104,7 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				msg = tea.KeyMsg{Type: tea.KeyDown}
 			case "k":
 				msg = tea.KeyMsg{Type: tea.KeyUp}
-			case "up", "down", "ctrl+s", "tab":
+			case "up", "down", "ctrl+s", "tab", "enter", "backspace":
 			default:
 				return model, nil
 			}
@@ -111,6 +115,7 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ConfigSavedMsg:
 		model.config = msg.NewConfig
 		model.mode = modeNormal
+		model.files = NewFilesModel(model.config.DownloadPath)
 		return model, nil
 
 	case progress.FrameMsg:
@@ -128,6 +133,7 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case downloader.DownloadDoneMsg:
 		model.download, cmd = model.download.Update(msg)
 		cmds = append(cmds, cmd)
+		model.files = model.files.Reload()
 		return model, tea.Batch(cmds...)
 	}
 
@@ -155,6 +161,10 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		model.download, cmd = model.download.Update(msg)
+		cmds = append(cmds, cmd)
+
+	case screenFiles:
+		model.files, cmd = model.files.Update(msg)
 		cmds = append(cmds, cmd)
 
 	case screenConfig:
