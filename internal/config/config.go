@@ -15,7 +15,7 @@ type AppConfig struct {
 func GetConfigPath() (string, error) {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	appDir := filepath.Join(configDir, "music-tracker")
@@ -28,7 +28,7 @@ func GetConfigPath() (string, error) {
 
 func LoadConfig() (AppConfig, error) {
 	cfg := AppConfig{
-		DownloadPath: "./downloads",
+		DownloadPath: "../../downloads",
 		AudioFormat:  "mp3",
 		AudioQuality: "very_high",
 	}
@@ -40,6 +40,7 @@ func LoadConfig() (AppConfig, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
+		SaveConfig(cfg)
 		return cfg, nil
 	}
 
@@ -53,9 +54,9 @@ func SaveConfig(cfg AppConfig) error {
 		return err
 	}
 
-	data, err := json.MarshalIndent(cfg, "", " ")
+	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return nil
+		return err
 	}
 
 	return os.WriteFile(path, data, 0644)
