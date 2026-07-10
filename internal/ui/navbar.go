@@ -27,6 +27,8 @@ func (model NavbarModel) Update(msg tea.Msg) (NavbarModel, tea.Cmd) {
 func (model NavbarModel) View(activeTab int) string {
 	var sb strings.Builder
 
+	sb.WriteString("[H]  ")
+
 	for i, tab := range model.Tabs {
 		if i == activeTab {
 			sb.WriteString("[ ")
@@ -38,6 +40,8 @@ func (model NavbarModel) View(activeTab int) string {
 			sb.WriteString(" ")
 		}
 	}
+
+	sb.WriteString("  [L]")
 
 	return sb.String()
 }

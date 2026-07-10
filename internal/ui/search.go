@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -15,11 +16,14 @@ func NewSearchModel() SearchModel {
 	ti.CharLimit = 200
 	ti.Width = 100
 
+	ti.Cursor.SetMode(cursor.CursorStatic)
+	ti.Focus()
+
 	return SearchModel{TextInput: ti}
 }
 
 func (model SearchModel) Init() tea.Cmd {
-	return textinput.Blink
+	return nil
 }
 
 func (model SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
@@ -30,5 +34,5 @@ func (model SearchModel) Update(msg tea.Msg) (SearchModel, tea.Cmd) {
 
 func (model SearchModel) View() string {
 	return "buscar música \n" + model.TextInput.View() + "\n\n" +
-		"enter para buscar | ctrl + c para sair"
+		"[enter] buscar | [ctrl+c] sair"
 }

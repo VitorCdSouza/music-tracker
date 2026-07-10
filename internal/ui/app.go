@@ -3,7 +3,9 @@ package ui
 import (
 	"strings"
 
+	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/progress"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vitorcds/music-tracker/internal/config"
 	"github.com/vitorcds/music-tracker/internal/downloader"
@@ -32,6 +34,7 @@ type AppModel struct {
 	search   SearchModel
 	download DownloadModel
 	files    FilesModel
+	settings SettingsModel
 	config   config.AppConfig
 	lineChan chan string
 }
@@ -44,13 +47,14 @@ func NewAppModel(cfg config.AppConfig) AppModel {
 		search:   NewSearchModel(),
 		download: NewDownloadModel(),
 		files:    NewFilesModel(),
+		settings: NewSettingsModel(cfg),
 		config:   cfg,
 		lineChan: make(chan string),
 	}
 }
 
 func (model AppModel) Init() tea.Cmd {
-	return model.search.Init()
+	return nil
 }
 
 func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -63,35 +67,52 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, tea.Quit
 		case "esc":
 			model.mode = modeNormal
-			model.search.TextInput.Blur()
+			model.search.TextInput.Cursor.SetMode(cursor.CursorStatic)
+			for i := range model.settings.inputs {
+				model.settings.inputs[i].Cursor.SetMode(cursor.CursorStatic)
+			}
 			return model, nil
 		}
 
 		if model.mode == modeNormal {
 			switch keyMsg.String() {
 			case "i":
-				if model.current == screenSearch {
-					model.mode = modeInput
-					return model, model.search.TextInput.Focus()
+				model.mode = modeInput
+				model.search.TextInput.Cursor.SetMode(cursor.CursorBlink)
+				for i := range model.settings.inputs {
+					model.settings.inputs[i].Cursor.SetMode(cursor.CursorBlink)
 				}
 
+				return model, textinput.Blink
+
 			case "L":
-				if model.current < 2 {
+				if int(model.current) < len(model.navbar.Tabs)-1 {
 					model.current = screen(int(model.current) + 1)
 				}
 				return model, nil
 			case "H":
 				if model.current > 0 {
 					model.current = screen(int(model.current) - 1)
-					return model, nil
 				}
-			}
+				return model, nil
 
-			return model, nil
+			case "j":
+				msg = tea.KeyMsg{Type: tea.KeyDown}
+			case "k":
+				msg = tea.KeyMsg{Type: tea.KeyUp}
+			case "up", "down", "ctrl+s", "tab":
+			default:
+				return model, nil
+			}
 		}
 	}
 
 	switch msg := msg.(type) {
+	case ConfigSavedMsg:
+		model.config = msg.NewConfig
+		model.mode = modeNormal
+		return model, nil
+
 	case progress.FrameMsg:
 		if model.current == screenDownloading {
 			model.download, cmd = model.download.Update(msg)
@@ -135,6 +156,10 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		model.download, cmd = model.download.Update(msg)
 		cmds = append(cmds, cmd)
+
+	case screenConfig:
+		model.settings, cmd = model.settings.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 
 	return model, tea.Batch(cmds...)
@@ -149,7 +174,7 @@ func (model AppModel) View() string {
 	}
 
 	sb.WriteString(model.navbar.View(activeTab))
-	sb.WriteString("\n")
+	sb.WriteString("\n\n")
 
 	switch model.current {
 	case screenSearch:
@@ -159,9 +184,16 @@ func (model AppModel) View() string {
 	case screenFiles:
 		sb.WriteString(model.files.View())
 	case screenConfig:
-		sb.WriteString("Desenvolvimento")
+		sb.WriteString(model.settings.View())
 	default:
 		return ""
+	}
+
+	sb.WriteString("\n\n")
+	if model.mode == modeNormal {
+		sb.WriteString("normal")
+	} else {
+		sb.WriteString("input")
 	}
 	return sb.String()
 }
