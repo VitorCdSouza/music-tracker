@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/vitorcds/music-tracker/internal/config"
 	"github.com/vitorcds/music-tracker/internal/downloader"
 )
 
@@ -30,16 +31,20 @@ type AppModel struct {
 	navbar   NavbarModel
 	search   SearchModel
 	download DownloadModel
+	files    FilesModel
+	config   config.AppConfig
 	lineChan chan string
 }
 
-func NewAppModel() AppModel {
+func NewAppModel(cfg config.AppConfig) AppModel {
 	return AppModel{
 		mode:     modeNormal,
 		current:  screenSearch,
 		navbar:   NewNavbarModel(),
 		search:   NewSearchModel(),
 		download: NewDownloadModel(),
+		files:    NewFilesModel(),
+		config:   cfg,
 		lineChan: make(chan string),
 	}
 }
@@ -113,7 +118,7 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.download = NewDownloadModel()
 
 			cmds = append(cmds,
-				downloader.StartDownload(url, model.lineChan),
+				downloader.StartDownload(url, model.lineChan, model.config),
 				downloader.ListenForLines(model.lineChan),
 			)
 			return model, tea.Batch(cmds...)
@@ -152,7 +157,7 @@ func (model AppModel) View() string {
 	case screenDownloading:
 		sb.WriteString(model.download.View())
 	case screenFiles:
-		sb.WriteString("Desenvolvimento")
+		sb.WriteString(model.files.View())
 	case screenConfig:
 		sb.WriteString("Desenvolvimento")
 	default:

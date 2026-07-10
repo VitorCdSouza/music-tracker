@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/vitorcds/music-tracker/internal/config"
 )
 
 type LineMsg string
@@ -16,13 +17,13 @@ type DownloadDoneMsg struct {
 
 var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 
-func StartDownload(url string, lineChan chan string) tea.Cmd {
+func StartDownload(url string, lineChan chan string, cfg config.AppConfig) tea.Cmd {
 	return func() tea.Msg {
 		cmd := exec.Command(
 			"python3", "-u", "-m", "zotify",
-			"--root-path", "/home/vitorcds/Músicas",
-			"--download-format", "mp3",
-			"--download-quality", "very_high",
+			"--root-path", cfg.DownloadPath,
+			"--download-format", cfg.AudioFormat,
+			"--download-quality", cfg.AudioQuality,
 			"--standard-interface", "true",
 			url,
 		)
