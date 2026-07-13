@@ -10,6 +10,7 @@ type AppConfig struct {
 	DownloadPath string `json:"downloadPath"`
 	AudioQuality string `json:"audioQuality"`
 	AudioFormat  string `json:"audioFormat"`
+	DownloadFrom string `json:"downloadFrom"`
 }
 
 func GetConfigPath() (string, error) {
@@ -31,6 +32,7 @@ func LoadConfig() (AppConfig, error) {
 		DownloadPath: "../../downloads",
 		AudioFormat:  "mp3",
 		AudioQuality: "very_high",
+		DownloadFrom: "",
 	}
 
 	path, err := GetConfigPath()

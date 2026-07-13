@@ -23,7 +23,7 @@ type SettingsModel struct {
 
 func NewSettingsModel(cfg config.AppConfig) SettingsModel {
 	settingsModel := SettingsModel{
-		inputs: make([]textinput.Model, 3),
+		inputs: make([]textinput.Model, 4),
 		cfg:    cfg,
 	}
 
@@ -39,6 +39,10 @@ func NewSettingsModel(cfg config.AppConfig) SettingsModel {
 	settingsModel.inputs[2] = textinput.New()
 	settingsModel.inputs[2].Placeholder = "low, high, very_high"
 	settingsModel.inputs[2].SetValue(cfg.AudioQuality)
+
+	settingsModel.inputs[3] = textinput.New()
+	settingsModel.inputs[3].Placeholder = "spotify, youtube"
+	settingsModel.inputs[3].SetValue(cfg.DownloadFrom)
 
 	for i := range settingsModel.inputs {
 		settingsModel.inputs[i].Cursor.SetMode(cursor.CursorStatic)
@@ -92,7 +96,7 @@ func (model SettingsModel) Update(msg tea.Msg) (SettingsModel, tea.Cmd) {
 func (model SettingsModel) View() string {
 	var sb strings.Builder
 
-	labels := []string{"caminho:", "formato:", "qualidade:"}
+	labels := []string{"caminho:", "formato:", "qualidade:", "player:"}
 
 	for i := range model.inputs {
 		fmt.Fprintf(&sb, "%-20s %s\n", labels[i], model.inputs[i].View())

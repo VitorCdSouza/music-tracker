@@ -77,6 +77,9 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if model.mode == modeNormal {
 			switch keyMsg.String() {
 			case "i":
+				if model.current == screenFiles {
+					return model, nil
+				}
 				model.mode = modeInput
 				model.search.TextInput.Cursor.SetMode(cursor.CursorBlink)
 				for i := range model.settings.inputs {
