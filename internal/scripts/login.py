@@ -60,7 +60,7 @@ def realizar_login_oauth(caminho_creds = "credentials.json"):
         print(f"credentiais gravadar em: {caminho_creds}")
     
     except Exception as e:
-        print(f"falha: {e}")
+        print(f"falha ao criar credentials.json: {e}", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == '__main__':
