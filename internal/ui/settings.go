@@ -76,6 +76,7 @@ func (model SettingsModel) Update(msg tea.Msg) (SettingsModel, tea.Cmd) {
 			model.cfg.DownloadPath = model.inputs[0].Value()
 			model.cfg.AudioFormat = model.inputs[1].Value()
 			model.cfg.AudioQuality = model.inputs[2].Value()
+			model.cfg.DownloadFrom = model.inputs[3].Value()
 
 			err := config.SaveConfig(model.cfg)
 			if err == nil {

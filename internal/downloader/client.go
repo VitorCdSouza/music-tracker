@@ -37,31 +37,34 @@ func StartDownload(url string, lineChan chan string, cfg config.AppConfig) tea.C
 			return DownloadDoneMsg{Err: err}
 		}
 
-		go func() {
-			scanner := bufio.NewScanner(stdout)
-			for scanner.Scan() {
-				rawLine := scanner.Text()
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			rawLine := scanner.Text()
 
-				cleanLine := ansiRegex.ReplaceAllString(rawLine, "")
-				cleanLine = strings.ReplaceAll(cleanLine, "\r", "")
-				cleanLine = strings.TrimSpace(cleanLine)
+			cleanLine := ansiRegex.ReplaceAllString(rawLine, "")
+			cleanLine = strings.ReplaceAll(cleanLine, "\r", "")
+			cleanLine = strings.TrimSpace(cleanLine)
 
-				if cleanLine != "" {
-					lineChan <- cleanLine
-				}
+			if cleanLine != "" {
+				lineChan <- cleanLine
 			}
-			if err := scanner.Err(); err != nil {
-				lineChan <- "Erro: " + err.Error()
-			}
-		}()
+		}
+		if err := scanner.Err(); err != nil {
+			lineChan <- "erro: " + err.Error()
+		}
 
 		err = cmd.Wait()
+		close(lineChan)
 		return DownloadDoneMsg{Err: err}
 	}
 }
 
 func ListenForLines(sub chan string) tea.Cmd {
 	return func() tea.Msg {
-		return LineMsg(<-sub)
+		if line, ok := <-sub; ok {
+			return LineMsg(line)
+		}
+
+		return nil
 	}
 }
