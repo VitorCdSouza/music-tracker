@@ -43,11 +43,19 @@ type AppModel struct {
 	config       config.AppConfig
 	lineChan     chan string
 	authLineChan chan string
+
+	provider bridge.Provider
 }
 
 func NewAppModel(cfg config.AppConfig) AppModel {
 	initialScreen := screenSearch
-	if cfg.DownloadFrom == "" || (cfg.DownloadFrom == "spotify" && !bridge.HasCredentials()) {
+
+	var activeProvider bridge.Provider
+	if cfg.DownloadFrom == "spotify" {
+		activeProvider = bridge.SpotifyProvider{}
+	}
+
+	if cfg.DownloadFrom == "" || (cfg.DownloadFrom == "spotify" && !activeProvider.HasCredentials()) {
 		initialScreen = screenAuth
 	}
 

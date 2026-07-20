@@ -54,7 +54,7 @@ def realizar_login_oauth(caminho_creds = "credentials.json"):
         builder.conf.stored_credentials_file = caminho_creds
         builder.login_credentials = login_credentials
 
-        session = builder.create()
+        _ = builder.create()
 
         print(f"login realizado")
         print(f"credentiais gravadar em: {caminho_creds}")

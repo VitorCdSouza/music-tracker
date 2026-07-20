@@ -39,6 +39,7 @@ def main(creds_path, playlist_url):
         items = playlist_data.get('contents', {}).get('items', [])
 
         print(f"playlist: {playlist_name} - n de musicas: {len(items)}\n")
+        print(f"playlist_id: {playlist_id}")
 
         music_list = []
         count = 0
@@ -49,7 +50,7 @@ def main(creds_path, playlist_url):
                 continue
 
             track_id_base62 = uri.split(':')[-1]
-            track_id_obj = metadata.TrackId.from_base62(track_id_base62)
+            #track_id_obj = metadata.TrackId.from_base62(track_id_base62)
 
             #track_proto = session.api().get_metadata_4_track(track_id_obj)
             #track_data = MessageToDict(track_proto, preserving_proto_field_name=True)

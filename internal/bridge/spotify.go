@@ -8,14 +8,17 @@ import (
 	"os/exec"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/vitorcds/music-tracker/internal/config"
 )
+
+type SpotifyProvider struct{}
 
 type AuthLineMsg string
 type AuthDoneMsg struct {
 	Err error
 }
 
-func SpotifyAuth(lineChan chan string) tea.Cmd {
+func (sp SpotifyProvider) Auth(lineChan chan string) tea.Cmd {
 	return func() tea.Msg {
 		cmd := exec.Command(
 			"python3", "-u", "../../internal/scripts/login.py",
@@ -70,7 +73,7 @@ func ListenForAuthLines(sub chan string) tea.Cmd {
 	}
 }
 
-func HasCredentials() bool {
+func (s SpotifyProvider) HasCredentials() bool {
 	if _, err := os.Stat("credentials.json"); err == nil {
 		return true
 	} else if errors.Is(err, os.ErrNotExist) {
@@ -78,4 +81,8 @@ func HasCredentials() bool {
 	}
 
 	return false
+}
+
+func (s SpotifyProvider) Download(url string, line chan string, cfg config.AppConfig) tea.Cmd {
+	return nil
 }
