@@ -6,10 +6,10 @@ from librespot import metadata
 from google.protobuf.json_format import MessageToDict
 
 def extract_playlist_id(url):
-    match = re.search(r'playlist/([a-zA-Z0-9]+)', url)
+    match = re.search(r'(track|playlist)/([a-zA-Z0-9]+)', url)
     if match:
-        return match.group(1)
-    return None
+        return match.group(1), match.group(2)
+    return None, None
 
 def start_saved_session(creds_path):
     try:
@@ -20,8 +20,8 @@ def start_saved_session(creds_path):
         sys.exit(1)
 
 def main(creds_path, playlist_url):
-    playlist_id = extract_playlist_id(playlist_url)
-    if not playlist_id:
+    type, id = extract_playlist_id(playlist_url)
+    if not type:
         print("url invalida", file=sys.stderr)
         sys.exit(1)
 
@@ -31,44 +31,42 @@ def main(creds_path, playlist_url):
     print("conectado, buscando playlist")
 
     try:
-        playlist_id_obj = metadata.PlaylistId.from_base62(playlist_id)
-        playlist_proto = session.api().get_playlist(playlist_id_obj)
-        playlist_data = MessageToDict(playlist_proto, preserving_proto_field_name=True)
-
-        playlist_name = playlist_data.get('attributes', {}).get('name', 'Unknown')
-        items = playlist_data.get('contents', {}).get('items', [])
-
-        print(f"playlist: {playlist_name} - n de musicas: {len(items)}\n")
-        print(f"playlist_id: {playlist_id}")
-
         music_list = []
-        count = 0
-        
-        for item in items:
-            uri = item.get('uri', '')
-            if not uri.startswith('spotify:track:'):
-                continue
+        if type == "playlist":
+            playlist_id_obj = metadata.PlaylistId.from_base62(id)
+            playlist_proto = session.api().get_playlist(playlist_id_obj)
+            playlist_data = MessageToDict(playlist_proto, preserving_proto_field_name=True)
 
-            track_id_base62 = uri.split(':')[-1]
-            #track_id_obj = metadata.TrackId.from_base62(track_id_base62)
-
-            #track_proto = session.api().get_metadata_4_track(track_id_obj)
-            #track_data = MessageToDict(track_proto, preserving_proto_field_name=True)
-
-            #name = track_data.get('name', 'Unknown')
-            #album = track_data.get('album', {}).get('name', 'Unknown')
-
-            #artists_list = track_data.get('artist', [])
-            #artists_names = ", ".join([a.get('name', '') for a in artists_list])
-
+            playlist_name = playlist_data.get('attributes', {}).get('name', 'Unknown')
             music_list.append({
-                #"name": name,
-                #"artist": artists_names,
-                #"album": album,
-                "spotify_id": track_id_base62
+                "playlist": playlist_name
             })
 
-            count += 1
+            items = playlist_data.get('contents', {}).get('items', [])
+
+            print(f"playlist: {playlist_name} - n de musicas: {len(items)}\n")
+            print(f"playlist_id: {id}")
+
+            count = 0
+            
+            for item in items:
+                uri = item.get('uri', '')
+                if not uri.startswith('spotify:track:'):
+                    continue
+
+                track_id_base62 = uri.split(':')[-1]
+
+                music_list.append({
+                    "spotify_id": track_id_base62
+                })
+
+                count += 1
+
+        elif type == "track":
+            music_list.append({
+                "playlist": "",
+                "spotify_id": id
+            })
 
         print("\njson")
         json_result = json.dumps(music_list, indent=2, ensure_ascii=False)

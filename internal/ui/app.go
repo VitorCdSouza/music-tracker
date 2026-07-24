@@ -197,7 +197,7 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return model, nil
 
 	case bridge.ScrapDoneMsg:
-		cmd = model.provider.Download(msg.IDs, model.lineChan, model.config)
+		cmd = model.provider.Download(msg.PlaylistName, msg.IDs, model.lineChan, model.config)
 		cmds = append(cmds, cmd)
 
 		return model, tea.Batch(cmds...)

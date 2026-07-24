@@ -21,8 +21,9 @@ type AuthDoneMsg struct {
 	Err error
 }
 type ScrapDoneMsg struct {
-	IDs []string
-	Err error
+	PlaylistName string
+	IDs          []string
+	Err          error
 }
 
 func (sp SpotifyProvider) Auth(lineChan chan string) tea.Cmd {
@@ -140,11 +141,12 @@ func (s SpotifyProvider) ScrapOnline(url string, lineChan chan string) tea.Cmd {
 			lineChan <- "erro: " + err.Error()
 		}
 
-		type MusicId struct {
-			ID string `json:"spotify_id"`
+		type ScaperReturn struct {
+			PlaylistName string `json:"playlist"`
+			ID           string `json:"spotify_id"`
 		}
 
-		var items []MusicId
+		var items []ScaperReturn
 
 		err = json.Unmarshal([]byte(jsonRaw.String()), &items)
 		if err != nil {
@@ -153,9 +155,16 @@ func (s SpotifyProvider) ScrapOnline(url string, lineChan chan string) tea.Cmd {
 			return ScrapDoneMsg{Err: err}
 		}
 
+		var playlistName string
 		var musicIds []string
 		for _, item := range items {
-			musicIds = append(musicIds, item.ID)
+			if item.PlaylistName != "" {
+				playlistName = item.PlaylistName
+			}
+
+			if item.ID != "" {
+				musicIds = append(musicIds, item.ID)
+			}
 		}
 
 		err = cmd.Wait()
@@ -163,17 +172,17 @@ func (s SpotifyProvider) ScrapOnline(url string, lineChan chan string) tea.Cmd {
 			lineChan <- "script python finalizou com erro: " + err.Error()
 		}
 
-		return ScrapDoneMsg{IDs: musicIds, Err: nil}
+		return ScrapDoneMsg{PlaylistName: playlistName, IDs: musicIds, Err: nil}
 	}
 
 }
 
-func (s SpotifyProvider) Download(ids []string, lineChan chan string, cfg config.AppConfig) tea.Cmd {
+func (s SpotifyProvider) Download(playlistName string, ids []string, lineChan chan string, cfg config.AppConfig) tea.Cmd {
 	return func() tea.Msg {
 
 		cmd := exec.Command(
 			"python3", "-u", "../../internal/scripts/downloader.py",
-			"credentials.json", cfg.DownloadPath, cfg.AudioQuality,
+			"credentials.json", cfg.DownloadPath, cfg.AudioQuality, playlistName,
 		)
 
 		idsUnified := strings.Join(ids, "\n")

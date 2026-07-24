@@ -1,6 +1,7 @@
 import sys
 import os
 import re
+import time
 from mutagen.oggvorbis import OggVorbis
 from librespot.core import Session
 from librespot import audio, metadata
@@ -47,7 +48,7 @@ def resolve_file_duplicate(base_path, track_id):
 
         n += 1
 
-def main(creds_path, download_path, download_quality):
+def main(creds_path, download_path, download_quality, playlist_name):
     track_ids = sys.stdin.read().splitlines()
     track_ids = [t.strip() for t in track_ids if t.strip()]
 
@@ -74,7 +75,11 @@ def main(creds_path, download_path, download_quality):
 
     quality = FormatOnlyAudioQuality(audio_quality, SuperAudioFormat.VORBIS)
 
-    os.makedirs(download_path, exist_ok=True)
+    final_path = download_path
+    if playlist_name:
+        playlist_name_sanitized = sanitize_filename(playlist_name)
+        final_path = os.path.join(download_path, playlist_name_sanitized)
+    os.makedirs(final_path, exist_ok=True)
 
     print(f"iniciando download de {len(track_ids)} musicas")
 
@@ -87,7 +92,7 @@ def main(creds_path, download_path, download_quality):
             artist_name = track_proto.artist[0].name if track_proto.artist else "unknown artist"
 
             file_base_name = sanitize_filename(f"{artist_name} - {music_name}")
-            full_base_path = os.path.join(download_path, file_base_name)
+            full_base_path = os.path.join(final_path, file_base_name)
 
             skip, file_path = resolve_file_duplicate(full_base_path, track_id_base62)    
 
@@ -96,7 +101,7 @@ def main(creds_path, download_path, download_quality):
             if skip:
                 print(f"pulando {track_id_base62}::{clean_file_name} (ja existente)")
                 continue
-
+            
             print(f"comecando {track_id_base62}::{clean_file_name}")
 
             # download
@@ -132,12 +137,8 @@ def main(creds_path, download_path, download_quality):
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
-        print("comando: python3 downloader.py <creds_path> <download_path> <quality>", file=sys.stderr)
+        print("comando: python3 downloader.py <creds_path> <download_path> <quality> <playlist_name>", file=sys.stderr)
         sys.exit(1)
 
-    main(sys.argv[1], sys.argv[2], sys.argv[3])
-
-
-
-
+    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
 

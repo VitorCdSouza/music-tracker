@@ -9,6 +9,6 @@ type Provider interface {
 	Auth(line chan string) tea.Cmd
 	HasCredentials() bool
 	ScrapOnline(url string, line chan string) tea.Cmd
-	Download(ids []string, line chan string, cfg config.AppConfig) tea.Cmd
+	Download(playlistName string, ids []string, line chan string, cfg config.AppConfig) tea.Cmd
 	ListenForLines(line chan string) tea.Cmd
 }
