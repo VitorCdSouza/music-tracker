@@ -45,7 +45,7 @@ func (model AuthModel) Update(msg tea.Msg) (AuthModel, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case bridge.AuthLineMsg:
+	case bridge.LineMsg:
 		model.logs = append(model.logs, string(msg))
 		if len(model.logs) > 15 {
 			model.logs = model.logs[len(model.logs)-15:]
@@ -76,9 +76,10 @@ func (model AuthModel) Update(msg tea.Msg) (AuthModel, tea.Cmd) {
 				}
 
 				if model.cfg.DownloadFrom == "spotify" {
+					provider := bridge.SpotifyProvider{}
 					cmds = append(cmds,
-						bridge.SpotifyAuth(model.bridgeFeedback),
-						bridge.ListenForAuthLines(model.bridgeFeedback),
+						provider.Auth(model.bridgeFeedback),
+						provider.ListenForLines(model.bridgeFeedback),
 					)
 				} else { // TODO ytb auth, dk if it needs one though
 					cmds = append(cmds, func() tea.Msg {

@@ -75,6 +75,8 @@ func NewAppModel(cfg config.AppConfig) AppModel {
 		config:       cfg,
 		lineChan:     make(chan string),
 		authLineChan: authChan,
+
+		provider: activeProvider,
 	}
 }
 
@@ -154,20 +156,51 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		model.mode = modeNormal
 		model.files = NewFilesModel(model.config.DownloadPath)
 
+		switch msg.NewConfig.DownloadFrom {
+		case "spotify":
+			model.provider = bridge.SpotifyProvider{}
+		case "youtube":
+			model.provider = bridge.SpotifyProvider{} // TODO add youtube provider
+		}
+
 		model.settings = NewSettingsModel(model.config)
 		return model, nil
 
-	case bridge.AuthLineMsg:
+	case bridge.LineMsg:
+		if model.current == screenDownloading {
+			model.download, cmd = model.download.Update(downloader.LineMsg(msg))
+			cmds = append(cmds, cmd)
+			if model.provider != nil {
+				cmds = append(cmds, model.provider.ListenForLines(model.lineChan))
+			}
+			return model, tea.Batch(cmds...)
+		}
+
 		model.auth, cmd = model.auth.Update(msg)
-		cmds = append(cmds, cmd, bridge.ListenForAuthLines(model.authLineChan))
+		if model.provider != nil {
+			cmds = append(cmds, cmd, model.provider.ListenForLines(model.authLineChan))
+		} else {
+			cmds = append(cmds, cmd, bridge.SpotifyProvider{}.ListenForLines(model.authLineChan))
+		}
 		return model, tea.Batch(cmds...)
 
 	case bridge.AuthDoneMsg:
+		if model.current == screenDownloading {
+			model.download, cmd = model.download.Update(downloader.DownloadDoneMsg{Err: msg.Err})
+			cmds = append(cmds, cmd)
+			return model, tea.Batch(cmds...)
+		}
+
 		if msg.Err != nil {
 			return model, nil
 		}
-		model.current = screenSearch
 		return model, nil
+
+	case bridge.ScrapDoneMsg:
+		cmd = model.provider.Download(msg.IDs, model.lineChan, model.config)
+		cmds = append(cmds, cmd)
+
+		return model, tea.Batch(cmds...)
 
 	case progress.FrameMsg:
 		if model.current == screenDownloading {
@@ -196,11 +229,13 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.current = screenDownloading
 			model.download = NewDownloadModel()
 
+			model.provider = bridge.SpotifyProvider{}
+
 			model.lineChan = make(chan string)
 
 			cmds = append(cmds,
-				downloader.StartDownload(url, model.lineChan, model.config),
-				downloader.ListenForLines(model.lineChan),
+				model.provider.ScrapOnline(url, model.lineChan),
+				model.provider.ListenForLines(model.lineChan),
 			)
 			return model, tea.Batch(cmds...)
 		}

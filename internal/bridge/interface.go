@@ -8,5 +8,7 @@ import (
 type Provider interface {
 	Auth(line chan string) tea.Cmd
 	HasCredentials() bool
-	Download(url string, line chan string, cfg config.AppConfig) tea.Cmd
+	ScrapOnline(url string, line chan string) tea.Cmd
+	Download(ids []string, line chan string, cfg config.AppConfig) tea.Cmd
+	ListenForLines(line chan string) tea.Cmd
 }
