@@ -7,7 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/vitorcds/music-tracker/internal/downloader"
+	"github.com/vitorcds/music-tracker/internal/bridge"
 )
 
 var progressRegex = regexp.MustCompile(`Total Query Progress:\s*(\d+)/(\d+)`)
@@ -36,9 +36,10 @@ func (model DownloadModel) Update(msg tea.Msg) (DownloadModel, tea.Cmd) {
 		model.progBar = progressModel.(progress.Model)
 		cmds = append(cmds, cmd)
 
-	case downloader.LineMsg:
+	case bridge.LineMsg:
 		line := string(msg)
 		model.lines = append(model.lines, string(msg))
+
 		if len(model.lines) > 20 {
 			model.lines = model.lines[len(model.lines)-20:]
 		}
@@ -55,7 +56,7 @@ func (model DownloadModel) Update(msg tea.Msg) (DownloadModel, tea.Cmd) {
 
 		}
 
-	case downloader.DownloadDoneMsg:
+	case bridge.DownloadDoneMsg:
 		model.err = msg.Err
 		model.done = true
 
@@ -96,15 +97,4 @@ func (model DownloadModel) View() string {
 	}
 
 	return "baixando: \n\n" + sb.String() + "\n"
-}
-
-func extractPercent(line string) float64 {
-	matches := progressRegex.FindStringSubmatch(line)
-	if len(matches) > 1 {
-		value, err := strconv.ParseFloat(matches[1], 64)
-		if err != nil {
-			return value / 100
-		}
-	}
-	return -1.0
 }

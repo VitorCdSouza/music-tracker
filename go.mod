@@ -4,7 +4,10 @@ go 1.26.4
 
 require github.com/charmbracelet/bubbletea v1.3.10 // direct
 
-require github.com/charmbracelet/bubbles v1.0.0
+require (
+	github.com/charmbracelet/bubbles v1.0.0
+	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
+)
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect

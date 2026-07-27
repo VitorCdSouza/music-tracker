@@ -79,7 +79,7 @@ func (model AuthModel) Update(msg tea.Msg) (AuthModel, tea.Cmd) {
 					provider := bridge.SpotifyProvider{}
 					cmds = append(cmds,
 						provider.Auth(model.bridgeFeedback),
-						provider.ListenForLines(model.bridgeFeedback),
+						bridge.ListenForLines(model.bridgeFeedback),
 					)
 				} else { // TODO ytb auth, dk if it needs one though
 					cmds = append(cmds, func() tea.Msg {

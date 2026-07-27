@@ -9,7 +9,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vitorcds/music-tracker/internal/bridge"
 	"github.com/vitorcds/music-tracker/internal/config"
-	"github.com/vitorcds/music-tracker/internal/downloader"
 )
 
 type appMode int
@@ -40,9 +39,13 @@ type AppModel struct {
 	settings SettingsModel
 	auth     AuthModel
 
+	feedback FeedbackModel
+
 	config       config.AppConfig
 	lineChan     chan string
 	authLineChan chan string
+
+	pythonEvents chan bridge.MsgFromPython
 
 	provider bridge.Provider
 }
@@ -50,9 +53,18 @@ type AppModel struct {
 func NewAppModel(cfg config.AppConfig) AppModel {
 	initialScreen := screenSearch
 
+	eventsChan := make(chan bridge.MsgFromPython, 100)
+
 	var activeProvider bridge.Provider
 	if cfg.DownloadFrom == "spotify" {
-		activeProvider = bridge.SpotifyProvider{}
+		activeProvider = &bridge.SpotifyProvider{}
+
+		err := activeProvider.StartWorker(eventsChan)
+		if err != nil {
+			eventsChan <- bridge.MsgFromPython{
+				Message: "erro ao iniciar worker: " + err.Error(),
+			}
+		}
 	}
 
 	if cfg.DownloadFrom == "" || (cfg.DownloadFrom == "spotify" && !activeProvider.HasCredentials()) {
@@ -72,16 +84,20 @@ func NewAppModel(cfg config.AppConfig) AppModel {
 		settings: NewSettingsModel(cfg),
 		auth:     NewAuthModel(cfg, authChan),
 
+		feedback: NewFeedbackModel(),
+
 		config:       cfg,
 		lineChan:     make(chan string),
 		authLineChan: authChan,
+
+		pythonEvents: eventsChan,
 
 		provider: activeProvider,
 	}
 }
 
 func (model AppModel) Init() tea.Cmd {
-	return nil
+	return bridge.ListenForEvents(model.pythonEvents)
 }
 
 func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -151,6 +167,14 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// comunication with other models/files
 	switch msg := msg.(type) {
+
+	case bridge.MsgFromPython:
+		model.feedback, cmd = model.feedback.Update(msg)
+		cmds = append(cmds, cmd)
+		cmds = append(cmds, bridge.ListenForEvents(model.pythonEvents))
+
+		return model, tea.Batch(cmds...)
+
 	case ConfigSavedMsg:
 		model.config = msg.NewConfig
 		model.mode = modeNormal
@@ -158,9 +182,16 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.NewConfig.DownloadFrom {
 		case "spotify":
-			model.provider = bridge.SpotifyProvider{}
+			model.provider = &bridge.SpotifyProvider{}
+			err := model.provider.StartWorker(model.pythonEvents)
+
+			if err != nil {
+				model.pythonEvents <- bridge.MsgFromPython{
+					Message: "erro ao iniciar worker: " + err.Error(),
+				}
+			}
 		case "youtube":
-			model.provider = bridge.SpotifyProvider{} // TODO add youtube provider
+			//model.provider = bridge.SpotifyProvider{} // TODO add youtube provider
 		}
 
 		model.settings = NewSettingsModel(model.config)
@@ -168,38 +199,34 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case bridge.LineMsg:
 		if model.current == screenDownloading {
-			model.download, cmd = model.download.Update(downloader.LineMsg(msg))
-			cmds = append(cmds, cmd)
+			model.download, cmd = model.download.Update(msg)
 			if model.provider != nil {
-				cmds = append(cmds, model.provider.ListenForLines(model.lineChan))
+				cmds = append(cmds, bridge.ListenForLines(model.lineChan))
 			}
 			return model, tea.Batch(cmds...)
 		}
 
 		model.auth, cmd = model.auth.Update(msg)
 		if model.provider != nil {
-			cmds = append(cmds, cmd, model.provider.ListenForLines(model.authLineChan))
+			cmds = append(cmds, cmd, bridge.ListenForLines(model.authLineChan))
 		} else {
-			cmds = append(cmds, cmd, bridge.SpotifyProvider{}.ListenForLines(model.authLineChan))
+			cmds = append(cmds, cmd, bridge.ListenForLines(model.authLineChan))
 		}
 		return model, tea.Batch(cmds...)
 
 	case bridge.AuthDoneMsg:
-		if model.current == screenDownloading {
-			model.download, cmd = model.download.Update(downloader.DownloadDoneMsg{Err: msg.Err})
-			cmds = append(cmds, cmd)
-			return model, tea.Batch(cmds...)
-		}
-
 		if msg.Err != nil {
 			return model, nil
 		}
 		return model, nil
 
 	case bridge.ScrapDoneMsg:
-		cmd = model.provider.Download(msg.PlaylistName, msg.IDs, model.lineChan, model.config)
-		cmds = append(cmds, cmd)
+		if msg.Err != nil {
+			return model, nil
+		}
 
+		cmd = model.provider.Download(msg.PlaylistName, msg.DownloadIds, model.lineChan, model.config)
+		cmds = append(cmds, cmd)
 		return model, tea.Batch(cmds...)
 
 	case progress.FrameMsg:
@@ -209,12 +236,7 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return model, tea.Batch(cmds...)
 		}
 
-	case downloader.LineMsg:
-		model.download, cmd = model.download.Update(msg)
-		cmds = append(cmds, cmd, downloader.ListenForLines(model.lineChan))
-		return model, tea.Batch(cmds...)
-
-	case downloader.DownloadDoneMsg:
+	case bridge.DownloadDoneMsg:
 		model.download, cmd = model.download.Update(msg)
 		cmds = append(cmds, cmd)
 		model.files = model.files.Reload()
@@ -229,13 +251,11 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			model.current = screenDownloading
 			model.download = NewDownloadModel()
 
-			model.provider = bridge.SpotifyProvider{}
-
 			model.lineChan = make(chan string)
 
 			cmds = append(cmds,
-				model.provider.ScrapOnline(url, model.lineChan),
-				model.provider.ListenForLines(model.lineChan),
+				model.provider.Scrap(url, model.lineChan, model.config),
+				bridge.ListenForLines(model.lineChan),
 			)
 			return model, tea.Batch(cmds...)
 		}
@@ -303,5 +323,8 @@ func (model AppModel) View() string {
 	} else {
 		sb.WriteString("input")
 	}
+
+	sb.WriteString("\n\n")
+	sb.WriteString(model.feedback.View())
 	return sb.String()
 }
