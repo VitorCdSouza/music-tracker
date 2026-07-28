@@ -1,29 +1,21 @@
 package ui
 
 import (
-	"regexp"
-	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vitorcds/music-tracker/internal/bridge"
 )
 
-var progressRegex = regexp.MustCompile(`Total Query Progress:\s*(\d+)/(\d+)`)
-
 type DownloadModel struct {
-	lines   []string
-	done    bool
-	progBar progress.Model
-	percent float64
-	err     error
+	lines []string
+	done  bool
+	err   error
 }
 
 func NewDownloadModel() DownloadModel {
 	return DownloadModel{
-		lines:   []string{},
-		progBar: progress.New(progress.WithDefaultGradient()),
+		lines: []string{},
 	}
 }
 
@@ -31,39 +23,16 @@ func (model DownloadModel) Update(msg tea.Msg) (DownloadModel, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case progress.FrameMsg:
-		progressModel, cmd := model.progBar.Update(msg)
-		model.progBar = progressModel.(progress.Model)
-		cmds = append(cmds, cmd)
-
 	case bridge.LineMsg:
-		line := string(msg)
 		model.lines = append(model.lines, string(msg))
 
 		if len(model.lines) > 20 {
 			model.lines = model.lines[len(model.lines)-20:]
 		}
 
-		matches := progressRegex.FindStringSubmatch(line)
-		if len(matches) == 3 {
-			current, err1 := strconv.ParseFloat(matches[1], 64)
-			total, err2 := strconv.ParseFloat(matches[2], 64)
-
-			if err1 == nil && err2 == nil && total > 0 {
-				model.percent = current / total
-				cmds = append(cmds, model.progBar.SetPercent(model.percent))
-			}
-
-		}
-
 	case bridge.DownloadDoneMsg:
 		model.err = msg.Err
 		model.done = true
-
-		if model.err == nil {
-			model.percent = 1.0
-			cmds = append(cmds, model.progBar.SetPercent(model.percent))
-		}
 	}
 
 	return model, tea.Batch(cmds...)
@@ -72,8 +41,6 @@ func (model DownloadModel) Update(msg tea.Msg) (DownloadModel, tea.Cmd) {
 func (model DownloadModel) View() string {
 	var sb strings.Builder
 
-	sb.WriteString("\n")
-	sb.WriteString(model.progBar.View())
 	sb.WriteString("\n")
 
 	start := 0
@@ -92,7 +59,7 @@ func (model DownloadModel) View() string {
 		if model.err != nil {
 			return "erro ao baixar: " + sb.String() + "\n\nenter para voltar"
 		}
-		return "finalizado: \n" + sb.String() + "\n\nenter para voltar"
+		return "finalizado: \n" + sb.String()
 
 	}
 

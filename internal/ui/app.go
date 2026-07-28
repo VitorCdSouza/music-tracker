@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/cursor"
-	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/vitorcds/music-tracker/internal/bridge"
@@ -29,8 +28,9 @@ const (
 )
 
 type AppModel struct {
-	mode    appMode
-	current screen
+	mode        appMode
+	current     screen
+	downloading bool
 
 	navbar   NavbarModel
 	search   SearchModel
@@ -41,9 +41,7 @@ type AppModel struct {
 
 	feedback FeedbackModel
 
-	config       config.AppConfig
-	lineChan     chan string
-	authLineChan chan string
+	config config.AppConfig
 
 	pythonEvents chan bridge.MsgFromPython
 
@@ -56,39 +54,35 @@ func NewAppModel(cfg config.AppConfig) AppModel {
 	eventsChan := make(chan bridge.MsgFromPython, 100)
 
 	var activeProvider bridge.Provider
-	if cfg.DownloadFrom == "spotify" {
+	if cfg.DownloadFrom == "spotify" && bridge.HasCredentials() {
 		activeProvider = &bridge.SpotifyProvider{}
-
 		err := activeProvider.StartWorker(eventsChan)
 		if err != nil {
 			eventsChan <- bridge.MsgFromPython{
 				Message: "erro ao iniciar worker: " + err.Error(),
 			}
 		}
-	}
+	} // TODO add youtube
 
-	if cfg.DownloadFrom == "" || (cfg.DownloadFrom == "spotify" && !activeProvider.HasCredentials()) {
+	if cfg.DownloadFrom == "" || (cfg.DownloadFrom == "spotify" && !bridge.HasCredentials()) {
 		initialScreen = screenAuth
 	}
 
-	authChan := make(chan string)
-
 	return AppModel{
-		mode:    modeNormal,
-		current: initialScreen,
+		mode:        modeNormal,
+		current:     initialScreen,
+		downloading: false,
 
 		navbar:   NewNavbarModel(),
 		search:   NewSearchModel(),
 		download: NewDownloadModel(),
 		files:    NewFilesModel(cfg.DownloadPath),
 		settings: NewSettingsModel(cfg),
-		auth:     NewAuthModel(cfg, authChan),
+		auth:     NewAuthModel(cfg, &activeProvider),
 
 		feedback: NewFeedbackModel(),
 
-		config:       cfg,
-		lineChan:     make(chan string),
-		authLineChan: authChan,
+		config: cfg,
 
 		pythonEvents: eventsChan,
 
@@ -167,9 +161,12 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// comunication with other models/files
 	switch msg := msg.(type) {
-
 	case bridge.MsgFromPython:
-		model.feedback, cmd = model.feedback.Update(msg)
+		if model.current == screenAuth {
+			model.auth, cmd = model.auth.Update(msg)
+		} else {
+			model.feedback, cmd = model.feedback.Update(msg)
+		}
 		cmds = append(cmds, cmd)
 		cmds = append(cmds, bridge.ListenForEvents(model.pythonEvents))
 
@@ -184,80 +181,33 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "spotify":
 			model.provider = &bridge.SpotifyProvider{}
 			err := model.provider.StartWorker(model.pythonEvents)
-
 			if err != nil {
 				model.pythonEvents <- bridge.MsgFromPython{
 					Message: "erro ao iniciar worker: " + err.Error(),
 				}
 			}
+
 		case "youtube":
-			//model.provider = bridge.SpotifyProvider{} // TODO add youtube provider
+			//model.provider = &bridge.YoutubeProvider{} // TODO add youtube provider
+		}
+
+		err := model.provider.Auth()
+		if err != nil {
+			model.pythonEvents <- bridge.MsgFromPython{
+				Message: "erro ao fazer auth no worker: " + err.Error(),
+			}
 		}
 
 		model.settings = NewSettingsModel(model.config)
+
 		return model, nil
-
-	case bridge.LineMsg:
-		if model.current == screenDownloading {
-			model.download, cmd = model.download.Update(msg)
-			if model.provider != nil {
-				cmds = append(cmds, bridge.ListenForLines(model.lineChan))
-			}
-			return model, tea.Batch(cmds...)
-		}
-
-		model.auth, cmd = model.auth.Update(msg)
-		if model.provider != nil {
-			cmds = append(cmds, cmd, bridge.ListenForLines(model.authLineChan))
-		} else {
-			cmds = append(cmds, cmd, bridge.ListenForLines(model.authLineChan))
-		}
-		return model, tea.Batch(cmds...)
-
-	case bridge.AuthDoneMsg:
-		if msg.Err != nil {
-			return model, nil
-		}
-		return model, nil
-
-	case bridge.ScrapDoneMsg:
-		if msg.Err != nil {
-			return model, nil
-		}
-
-		cmd = model.provider.Download(msg.PlaylistName, msg.DownloadIds, model.lineChan, model.config)
-		cmds = append(cmds, cmd)
-		return model, tea.Batch(cmds...)
-
-	case progress.FrameMsg:
-		if model.current == screenDownloading {
-			model.download, cmd = model.download.Update(msg)
-			cmds = append(cmds, cmd)
-			return model, tea.Batch(cmds...)
-		}
-
-	case bridge.DownloadDoneMsg:
-		model.download, cmd = model.download.Update(msg)
-		cmds = append(cmds, cmd)
-		model.files = model.files.Reload()
-		return model, tea.Batch(cmds...)
 	}
 
 	// current screen handler
 	switch model.current {
-	case screenSearch:
+	case screenSearch: // TODO adapt to worker integration
 		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "enter" {
-			url := model.search.TextInput.Value()
-			model.current = screenDownloading
-			model.download = NewDownloadModel()
-
-			model.lineChan = make(chan string)
-
-			cmds = append(cmds,
-				model.provider.Scrap(url, model.lineChan, model.config),
-				bridge.ListenForLines(model.lineChan),
-			)
-			return model, tea.Batch(cmds...)
+			model.downloading = true
 		}
 		model.search, cmd = model.search.Update(msg)
 		cmds = append(cmds, cmd)
@@ -326,5 +276,10 @@ func (model AppModel) View() string {
 
 	sb.WriteString("\n\n")
 	sb.WriteString(model.feedback.View())
+
+	if model.downloading {
+		sb.WriteString("\n\n")
+		sb.WriteString(model.download.View())
+	}
 	return sb.String()
 }

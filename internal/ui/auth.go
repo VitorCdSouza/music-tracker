@@ -15,25 +15,27 @@ type playerOption struct {
 }
 
 type AuthModel struct {
-	cursor         int
-	players        []playerOption
-	cfg            config.AppConfig
-	bridgeFeedback chan string
+	cursor  int
+	players []playerOption
+	cfg     config.AppConfig
+
+	provider *bridge.Provider
 
 	state int
 	logs  []string
 }
 
-func NewAuthModel(cfg config.AppConfig, authChan chan string) AuthModel {
+func NewAuthModel(cfg config.AppConfig, provider *bridge.Provider) AuthModel {
 	return AuthModel{
 		players: []playerOption{
 			{ID: "spotify", Label: "spotify"},
 			{ID: "youtube", Label: "youtube (em desenvolvimento)"},
 		},
-		cfg:            cfg,
-		bridgeFeedback: authChan,
-		state:          0,
-		logs:           []string{},
+		cfg:      cfg,
+		provider: provider,
+
+		state: 0,
+		logs:  []string{},
 	}
 }
 
@@ -45,8 +47,8 @@ func (model AuthModel) Update(msg tea.Msg) (AuthModel, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case bridge.LineMsg:
-		model.logs = append(model.logs, string(msg))
+	case bridge.MsgFromPython:
+		model.logs = append(model.logs, string(msg.Message))
 		if len(model.logs) > 15 {
 			model.logs = model.logs[len(model.logs)-15:]
 		}
@@ -72,18 +74,6 @@ func (model AuthModel) Update(msg tea.Msg) (AuthModel, tea.Cmd) {
 				if err == nil {
 					cmds = append(cmds, func() tea.Msg {
 						return ConfigSavedMsg{NewConfig: model.cfg}
-					})
-				}
-
-				if model.cfg.DownloadFrom == "spotify" {
-					provider := bridge.SpotifyProvider{}
-					cmds = append(cmds,
-						provider.Auth(model.bridgeFeedback),
-						bridge.ListenForLines(model.bridgeFeedback),
-					)
-				} else { // TODO ytb auth, dk if it needs one though
-					cmds = append(cmds, func() tea.Msg {
-						return bridge.AuthDoneMsg{Err: nil}
 					})
 				}
 

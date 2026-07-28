@@ -90,62 +90,34 @@ func (sp *SpotifyProvider) StartWorker(channel chan MsgFromPython) error {
 	return nil
 }
 
-func (sp SpotifyProvider) Auth(lineChan chan string) tea.Cmd {
-	return func() tea.Msg {
-		cmd := exec.Command(
-			"python3", "-u", "../../internal/scripts/login.py",
-		)
-
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			return AuthDoneMsg{Err: err}
-		}
-
-		stderr, err := cmd.StderrPipe()
-		if err != nil {
-			return AuthDoneMsg{Err: err}
-		}
-
-		if err := cmd.Start(); err != nil {
-			lineChan <- "erro ao iniciar script: " + err.Error()
-			return AuthDoneMsg{Err: err}
-		}
-
-		multi := io.MultiReader(stdout, stderr)
-		scanner := bufio.NewScanner(multi)
-
-		for scanner.Scan() {
-			line := scanner.Text()
-
-			if line != "" {
-				lineChan <- line
-			}
-		}
-
-		if err := scanner.Err(); err != nil {
-			lineChan <- "erro: " + err.Error()
-		}
-		err = cmd.Wait()
-		if err != nil {
-			lineChan <- "script python finalizou com erro: " + err.Error()
-		}
-
-		close(lineChan)
-		return AuthDoneMsg{Err: err}
-	}
-}
-
-func (sp SpotifyProvider) HasCredentials() bool {
-	if _, err := os.Stat("credentials.json"); err == nil {
-		return true
-	} else if errors.Is(err, os.ErrNotExist) {
-		return false
+func (sp *SpotifyProvider) SendCommand(msg MsgToPython) error {
+	jsonMsg, err := json.Marshal(msg)
+	if err != nil {
+		return err
 	}
 
-	return false
+	jsonMsg = append(jsonMsg, '\n')
+	_, err = sp.workerStdin.Write(jsonMsg)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (sp SpotifyProvider) ScrapOnline(url string, lineChan chan string) (string, []string, error) {
+func (sp SpotifyProvider) Auth() error {
+	authMsg := MsgToPython{
+		Action: "login",
+	}
+
+	err := sp.SendCommand(authMsg)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (sp SpotifyProvider) ScrapOnline(url string) (string, []string, error) {
 	cmd := exec.Command(
 		"python3", "-u", "../../internal/scripts/scraper.py",
 		"credentials.json", url,
@@ -162,7 +134,6 @@ func (sp SpotifyProvider) ScrapOnline(url string, lineChan chan string) (string,
 	}
 
 	if err := cmd.Start(); err != nil {
-		lineChan <- "erro ao iniciar script: " + err.Error()
 		return "", nil, err
 	}
 
@@ -186,12 +157,9 @@ func (sp SpotifyProvider) ScrapOnline(url string, lineChan chan string) (string,
 
 		if recordingJson {
 			jsonRaw.WriteString(line)
-		} else {
-			lineChan <- line
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		lineChan <- "erro: " + err.Error()
 	}
 
 	type ScaperReturn struct {
@@ -203,8 +171,6 @@ func (sp SpotifyProvider) ScrapOnline(url string, lineChan chan string) (string,
 
 	err = json.Unmarshal([]byte(jsonRaw.String()), &items)
 	if err != nil {
-		lineChan <- "erro ao ler json: " + err.Error()
-		close(lineChan)
 		return "", nil, err
 	}
 
@@ -222,7 +188,6 @@ func (sp SpotifyProvider) ScrapOnline(url string, lineChan chan string) (string,
 
 	err = cmd.Wait()
 	if err != nil {
-		lineChan <- "script python finalizou com erro: " + err.Error()
 	}
 
 	return playlistName, musicIds, nil
@@ -264,9 +229,9 @@ func (sp SpotifyProvider) ScrapLocal(musicsPath string, musicFormat string) ([]s
 	return localIds, nil
 }
 
-func (sp SpotifyProvider) Scrap(url string, lineChan chan string, config config.AppConfig) tea.Cmd {
+func (sp SpotifyProvider) Scrap(url string, config config.AppConfig) tea.Cmd {
 	return func() tea.Msg {
-		playlistName, onlineIds, err := sp.ScrapOnline(url, lineChan)
+		playlistName, onlineIds, err := sp.ScrapOnline(url)
 		if err != nil {
 			return ScrapDoneMsg{Err: err}
 		}
@@ -292,7 +257,7 @@ func (sp SpotifyProvider) Scrap(url string, lineChan chan string, config config.
 	}
 }
 
-func (sp SpotifyProvider) Download(playlistName string, ids []string, lineChan chan string, cfg config.AppConfig) tea.Cmd {
+func (sp SpotifyProvider) Download(playlistName string, ids []string, cfg config.AppConfig) tea.Cmd {
 	return func() tea.Msg {
 
 		cmd := exec.Command(
@@ -314,7 +279,6 @@ func (sp SpotifyProvider) Download(playlistName string, ids []string, lineChan c
 		}
 
 		if err := cmd.Start(); err != nil {
-			lineChan <- "erro ao iniciar script: " + err.Error()
 			return DownloadDoneMsg{Err: err}
 		}
 
@@ -325,19 +289,15 @@ func (sp SpotifyProvider) Download(playlistName string, ids []string, lineChan c
 			line := scanner.Text()
 
 			if line != "" {
-				lineChan <- line
 			}
 		}
 
 		if err := scanner.Err(); err != nil {
-			lineChan <- "erro: " + err.Error()
 		}
 		err = cmd.Wait()
 		if err != nil {
-			lineChan <- "script python finalizou com erro: " + err.Error()
 		}
 
-		close(lineChan)
 		return DownloadDoneMsg{Err: err}
 	}
 }
