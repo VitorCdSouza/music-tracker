@@ -104,17 +104,19 @@ func (sp *SpotifyProvider) SendCommand(msg MsgToPython) error {
 	return nil
 }
 
-func (sp SpotifyProvider) Auth() error {
-	authMsg := MsgToPython{
-		Action: "login",
-	}
+func (sp SpotifyProvider) Auth() tea.Cmd {
+	return func() tea.Msg {
+		authMsg := MsgToPython{
+			Action: "login",
+		}
 
-	err := sp.SendCommand(authMsg)
-	if err != nil {
-		return err
-	}
+		err := sp.SendCommand(authMsg)
+		if err != nil {
+			return err
+		}
 
-	return nil
+		return nil
+	}
 }
 
 func (sp SpotifyProvider) ScrapOnline(url string) (string, []string, error) {

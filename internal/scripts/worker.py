@@ -25,6 +25,7 @@ def main():
         try:
             command = json.loads(line)
             action = command.get("action", "unknown")
+            if action == "login":
             send_event("log", f"comando recebido do go: {action}")
         except json.JSONDecodeError:
             send_event("error", "falha ao decodificar comando go")
