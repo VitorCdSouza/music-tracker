@@ -164,6 +164,9 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case bridge.MsgFromPython:
 		if model.current == screenAuth {
 			model.auth, cmd = model.auth.Update(msg)
+			if msg.Event == "auth_done" && bridge.HasCredentials() {
+				model.current = screenSearch
+			}
 		} else {
 			model.feedback, cmd = model.feedback.Update(msg)
 		}

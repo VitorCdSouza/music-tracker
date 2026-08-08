@@ -9,10 +9,12 @@ from login import login_oauth
 def send_event(event, message):
     print(json.dumps({"event": event, "message": message}), flush=True)
 
+
 def ping():
     while True:
         time.sleep(5)
         send_event("log", "worker ativo")
+
 
 def main():
     send_event("log", "worker iniciado e aguardando comandos")
@@ -29,12 +31,12 @@ def main():
             command = json.loads(line)
             action = command.get("action", "unknown")
             if action == "login":
+                send_event("log", f"comando recebido do go: {action}")
                 login_oauth(send_event)
 
-                send_event("log", f"comando recebido do go: {action}")
         except json.JSONDecodeError:
             send_event("error", "falha ao decodificar comando go")
 
-if __name__ == '__main__':
-    main()
 
+if __name__ == "__main__":
+    main()

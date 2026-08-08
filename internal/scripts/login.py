@@ -1,35 +1,37 @@
 import sys
 import textwrap
-import webbrowser
 import threading
-from librespot.core import Session, OAuth, MercuryRequests
+import webbrowser
+
+from librespot.core import MercuryRequests, OAuth, Session
 
 SCOPES = [
-    'streaming',
-    'playlist-read-private',
-    'playlist-read-collaborative',
-    'user-follow-read',
-    'user-read-playback-position',
-    'user-top-read',
-    'user-read-recently-played',
-    'user-library-read',
-    'user-read-email',
-    'user-read-private'
+    "streaming",
+    "playlist-read-private",
+    "playlist-read-collaborative",
+    "user-follow-read",
+    "user-read-playback-position",
+    "user-top-read",
+    "user-read-recently-played",
+    "user-library-read",
+    "user-read-email",
+    "user-read-private",
 ]
 
-def login_oauth(send_event, caminho_creds = "credentials.json"):
-    print("autenticacao spotify")
+
+def login_oauth(send_event, caminho_creds="credentials.json"):
+    send_event("log", "autenticacao spotify")
 
     port = 4381
     redirect_url = f"http://127.0.0.1:{port}/login"
-    
-    def oauth_print (url):
-        #magic_link = f"\033]8;;{url}\033\\ [ login no navegador ]\033]8;;\033\\"
-        #print(f"\n{magic_link}\n")
+
+    def oauth_print(url):
+        # magic_link = f"\033]8;;{url}\033\\ [ login no navegador ]\033]8;;\033\\"
+        # print(f"\n{magic_link}\n")
         send_event("log", "abrindo navegador...")
         try:
             webbrowser.open(url)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
         def print_fallback():
@@ -41,13 +43,16 @@ def login_oauth(send_event, caminho_creds = "credentials.json"):
         t.daemon = True
         t.start()
 
-
     try:
         client_id = MercuryRequests.keymaster_client_id
-        oauth = OAuth(client_id, redirect_url, oauth_print).set_scopes(SCOPES).set_listen_all(True)
+        oauth = (
+            OAuth(client_id, redirect_url, oauth_print)
+            .set_scopes(SCOPES)
+            .set_listen_all(True)
+        )
         login_credentials = oauth.flow()
 
-        print("processando token de login")
+        send_event("log", "processando token de login")
 
         builder = Session.Builder()
         builder.conf.store_credentials = True
@@ -56,14 +61,9 @@ def login_oauth(send_event, caminho_creds = "credentials.json"):
 
         _ = builder.create()
 
-        print(f"login realizado")
-        print(f"credentiais gravadar em: {caminho_creds}")
-    
-    except Exception as e:
-        print(f"falha ao criar credentials.json: {e}", file=sys.stderr)
+        send_event("log", "login realizado")
+        send_event("auth_done", f"credentiais gravadar em: {caminho_creds}")
+
+    except Exception as e:  # noqa: BLE001
+        send_event("error", f"falha ao criar credentials.json: {e}")
         sys.exit(1)
-
-if __name__ == '__main__':
-    creds_path = sys.argv[1] if len(sys.argv) > 1 else "credentials.json"
-    login_oauth()
-
