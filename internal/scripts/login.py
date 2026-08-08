@@ -1,4 +1,3 @@
-import sys
 import textwrap
 import threading
 import webbrowser
@@ -66,4 +65,3 @@ def login_oauth(send_event, caminho_creds="credentials.json"):
 
     except Exception as e:  # noqa: BLE001
         send_event("error", f"falha ao criar credentials.json: {e}")
-        sys.exit(1)
