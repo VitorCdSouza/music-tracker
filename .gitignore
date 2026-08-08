@@ -1,0 +1,8 @@
+credentials.json
+credentials*.json
+
+__pycache__/
+*.py[cod]
+
+/cmd/tracker/tracker
+tracker

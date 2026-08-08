@@ -75,7 +75,7 @@ no lugar de um processo Python novo por ação. Auth é a primeira ação migrad
 
 ### Autenticação (Go ↔ worker)
 
-- [ ] Ajustar chamada do `worker.py` para o login (`login.py`)
+- [x] Ajustar chamada do `worker.py` para o login (`login.py`)
 - [ ] Trocar os `print()` do `login.py` por eventos JSON — hoje o Go cai no fallback `Event: "log"` (`spotify.go:73`)
 - [ ] Tirar o `sys.exit(1)` do `login.py:64` — mata o worker inteiro depois do import
 - [ ] Rodar `oauth.flow()` fora da thread principal — bloqueia o loop do stdin (`login.py:48`)
@@ -85,7 +85,8 @@ no lugar de um processo Python novo por ação. Auth é a primeira ação migrad
 - [ ] Proteger provider `nil` — escolher YouTube chama `Auth()` sobre `nil` (`app.go:190`)
 - [ ] Usar o ponteiro `provider` no `AuthModel` ou removê-lo (`auth.go:22`)
 - [ ] Corrigir `login.py:68` — chama `login_oauth()` sem passar o `creds_path` do `argv`
-- [ ] Conferir `credentials.json` no `.gitignore` — contém token de sessão
+- [x] Conferir `credentials.json` no `.gitignore` — contém token de sessão
+- [ ] Destrackear os `.pyc` de `internal/scripts/__pycache__/` — já estão no índice do git
 
 ### Depois da autenticação
 

@@ -29,7 +29,7 @@ def main():
             command = json.loads(line)
             action = command.get("action", "unknown")
             if action == "login":
-                login_oauth()
+                login_oauth(send_event)
 
                 send_event("log", f"comando recebido do go: {action}")
         except json.JSONDecodeError:

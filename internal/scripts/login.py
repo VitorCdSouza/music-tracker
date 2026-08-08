@@ -17,7 +17,7 @@ SCOPES = [
     'user-read-private'
 ]
 
-def login_oauth(caminho_creds = "credentials.json"):
+def login_oauth(send_event, caminho_creds = "credentials.json"):
     print("autenticacao spotify")
 
     port = 4381
@@ -26,16 +26,16 @@ def login_oauth(caminho_creds = "credentials.json"):
     def oauth_print (url):
         #magic_link = f"\033]8;;{url}\033\\ [ login no navegador ]\033]8;;\033\\"
         #print(f"\n{magic_link}\n")
-        print("abrindo navegador...")
+        send_event("log", "abrindo navegador...")
         try:
             webbrowser.open(url)
         except Exception:
             pass
 
         def print_fallback():
-            print("\nse navegador nao abriu, copie link abaixo:")
+            send_event("log", "se navegador nao abriu, copie link abaixo:")
             wrapped_url = textwrap.fill(url, width=70, break_long_words=True)
-            print(f"{wrapped_url}\n")
+            send_event("log", f"{wrapped_url}\n")
 
         t = threading.Timer(5.0, print_fallback)
         t.daemon = True
