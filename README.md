@@ -70,6 +70,42 @@ Para baixar, basta colar o link de uma música ou playlist na aba de busca (ex: 
 
 ## TODO / Roadmap
 
+Migração para arquitetura de worker: um único `worker.py` vivo lendo comandos JSON pelo stdin,
+no lugar de um processo Python novo por ação. Auth é a primeira ação migrada.
+
+### Autenticação (Go ↔ worker)
+
+- [ ] Ajustar chamada do `worker.py` para o login (`login.py`)
+- [ ] Trocar os `print()` do `login.py` por eventos JSON — hoje o Go cai no fallback `Event: "log"` (`spotify.go:73`)
+- [ ] Tirar o `sys.exit(1)` do `login.py:64` — mata o worker inteiro depois do import
+- [ ] Rodar `oauth.flow()` fora da thread principal — bloqueia o loop do stdin (`login.py:48`)
+- [ ] Emitir `AuthDoneMsg` quando o login terminar — declarado em `spotify.go:23`, nunca usado
+- [ ] Sair da tela de auth ao concluir — `AuthModel.state` trava em `1` (`auth.go:70`)
+- [ ] Tratar retorno de `SpotifyProvider.Auth()` no `Update` do `AppModel` (`spotify.go:107`)
+- [ ] Proteger provider `nil` — escolher YouTube chama `Auth()` sobre `nil` (`app.go:190`)
+- [ ] Usar o ponteiro `provider` no `AuthModel` ou removê-lo (`auth.go:22`)
+- [ ] Corrigir `login.py:68` — chama `login_oauth()` sem passar o `creds_path` do `argv`
+- [ ] Conferir `credentials.json` no `.gitignore` — contém token de sessão
+
+### Depois da autenticação
+
+- [ ] Migrar `Scrap` e `Download` para o worker — ainda abrem processo separado (`spotify.go:123` e `:265`)
+- [ ] Completar o diff online vs local no `Scrap()` — retorna `nil` quando há IDs locais (`spotify.go:254`)
+- [ ] Disparar `Scrap` no Enter da busca — hoje só marca `downloading = true` (`app.go:210`)
+
+### Revisar no final (caminhos)
+
+Adiado de propósito: mexer aqui muda cwd e quebra tudo que depende de caminho relativo.
+Fazer de uma vez só, depois que auth, scrap e download estiverem funcionando.
+
+- [ ] Worker sobe com caminho relativo `../../internal/scripts/worker.py`, assumindo cwd em `cmd/tracker` (`spotify.go:36`)
+- [ ] `HasCredentials()` procura `credentials.json` no cwd (`interface.go:56`)
+- [ ] `scraper.py` e `downloader.py` recebem `"credentials.json"` hardcoded (`spotify.go:125` e `:267`)
+- [ ] Import do `worker.py` é implicitamente relativo (`from login import ...`) — só resolve porque o script roda de dentro de `internal/scripts/`. Decidir entre `PYTHONPATH`/`-m` ou manter
+- [ ] `login.py:20` tem default `credentials.json` relativo ao cwd do worker
+
+### Ideias posteriores
+
 - [ ] Suporte para downloads do YouTube (estrutura já iniciada no código).
 - [ ] Melhorar o feedback de progresso dos downloads na interface.
 - [ ] Refatorar a comunicação de eventos Python -> Go.

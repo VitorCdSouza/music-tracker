@@ -27,7 +27,7 @@ type Provider interface {
 	StartWorker(channel chan MsgFromPython) error
 	SendCommand(msg MsgToPython) error
 
-	Auth() error
+	Auth() tea.Cmd
 	Scrap(url string, config config.AppConfig) tea.Cmd
 	Download(playlistName string, ids []string, cfg config.AppConfig) tea.Cmd
 }

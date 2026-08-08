@@ -17,7 +17,7 @@ SCOPES = [
     'user-read-private'
 ]
 
-def realizar_login_oauth(caminho_creds = "credentials.json"):
+def login_oauth(caminho_creds = "credentials.json"):
     print("autenticacao spotify")
 
     port = 4381
@@ -65,5 +65,5 @@ def realizar_login_oauth(caminho_creds = "credentials.json"):
 
 if __name__ == '__main__':
     creds_path = sys.argv[1] if len(sys.argv) > 1 else "credentials.json"
-    realizar_login_oauth()
+    login_oauth()
 

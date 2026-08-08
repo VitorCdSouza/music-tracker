@@ -191,16 +191,12 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			//model.provider = &bridge.YoutubeProvider{} // TODO add youtube provider
 		}
 
-		err := model.provider.Auth()
-		if err != nil {
-			model.pythonEvents <- bridge.MsgFromPython{
-				Message: "erro ao fazer auth no worker: " + err.Error(),
-			}
-		}
+		cmd = model.provider.Auth()
+		cmds = append(cmds, cmd)
 
 		model.settings = NewSettingsModel(model.config)
 
-		return model, nil
+		return model, tea.Batch(cmds...)
 	}
 
 	// current screen handler
