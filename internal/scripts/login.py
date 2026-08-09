@@ -42,26 +42,28 @@ def login_oauth(send_event, caminho_creds="credentials.json"):
         t.daemon = True
         t.start()
 
-    try:
-        client_id = MercuryRequests.keymaster_client_id
-        oauth = (
-            OAuth(client_id, redirect_url, oauth_print)
-            .set_scopes(SCOPES)
-            .set_listen_all(True)
-        )
-        login_credentials = oauth.flow()
+    client_id = MercuryRequests.keymaster_client_id
+    oauth = (
+        OAuth(client_id, redirect_url, oauth_print)
+        .set_scopes(SCOPES)
+        .set_listen_all(True)
+    )
 
-        send_event("log", "processando token de login")
+    def run_credentials():
+        try:
+            login_credentials = oauth.flow()
+            send_event("log", "processando token de login")
+            builder = Session.Builder()
+            builder.conf.store_credentials = True
+            builder.conf.stored_credentials_file = caminho_creds
+            builder.login_credentials = login_credentials
 
-        builder = Session.Builder()
-        builder.conf.store_credentials = True
-        builder.conf.stored_credentials_file = caminho_creds
-        builder.login_credentials = login_credentials
+            _ = builder.create()
 
-        _ = builder.create()
+            send_event("log", "login realizado")
+            send_event("auth_done", f"credentials gravadas em: {caminho_creds}")
+        except Exception as e:  # noqa: BLE001
+            send_event("error", f"falha ao criar credentials.json: {e}")
 
-        send_event("log", "login realizado")
-        send_event("auth_done", f"credentiais gravadar em: {caminho_creds}")
-
-    except Exception as e:  # noqa: BLE001
-        send_event("error", f"falha ao criar credentials.json: {e}")
+    cred_thread = threading.Thread(target=run_credentials)
+    cred_thread.start()

@@ -78,7 +78,7 @@ no lugar de um processo Python novo por ação. Auth é a primeira ação migrad
 - [x] Ajustar chamada do `worker.py` para o login (`login.py`)
 - [x] Trocar os `print()` do `login.py` por eventos JSON — hoje o Go cai no fallback `Event: "log"` (`spotify.go:73`)
 - [x] Tirar o `sys.exit(1)` do `login.py:64` — mata o worker inteiro depois do import
-- [ ] Rodar `oauth.flow()` fora da thread principal — bloqueia o loop do stdin (`login.py:48`)
+- [x] Rodar `oauth.flow()` fora da thread principal — bloqueia o loop do stdin (`login.py:52`)
 - [ ] Emitir `AuthDoneMsg` quando o login terminar — declarado em `spotify.go:23`, nunca usado
 - [ ] Sair da tela de auth ao concluir — `AuthModel.state` trava em `1` (`auth.go:70`)
 - [ ] Tratar retorno de `SpotifyProvider.Auth()` no `Update` do `AppModel` (`spotify.go:107`)
