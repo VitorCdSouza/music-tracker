@@ -34,8 +34,8 @@ def main():
                 send_event("log", f"comando recebido do go: {action}")
                 login_oauth(send_event)
 
-        except json.JSONDecodeError:
-            send_event("error", "falha ao decodificar comando go")
+        except Exception as e:  # noqa: BLE001
+            send_event("error", f"falha no worker: {e}")
 
 
 if __name__ == "__main__":

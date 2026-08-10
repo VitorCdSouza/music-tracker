@@ -79,7 +79,10 @@ no lugar de um processo Python novo por ação. Auth é a primeira ação migrad
 - [x] Trocar os `print()` do `login.py` por eventos JSON — hoje o Go cai no fallback `Event: "log"` (`spotify.go:73`)
 - [x] Tirar o `sys.exit(1)` do `login.py:64` — mata o worker inteiro depois do import
 - [x] Rodar `oauth.flow()` fora da thread principal — bloqueia o loop do stdin (`login.py:52`)
-- [ ] Emitir `AuthDoneMsg` quando o login terminar — declarado em `spotify.go:23`, nunca usado
+- [ ] Mover as mensagens tipadas (`LineMsg`, `AuthDoneMsg`, `ScrapDoneMsg`, `DownloadDoneMsg`) para `interface.go` — são contrato do pacote `bridge`, não implementação do Spotify (`spotify.go:20`)
+- [ ] Marcar as mensagens do worker com uma interface `WorkerMsg` (método vazio, minúsculo) — deixa o `Update` rearmar o `ListenForEvents` num ponto só, em vez de um `append` por case (`app.go:174`)
+- [ ] Traduzir `Event: "auth_done"` em `AuthDoneMsg` dentro de `ListenForEvents` — hoje o `Update` compara string crua (`interface.go:36`, `app.go:167`)
+- [ ] Remover o `if msg.Event == "auth_done"` vazio do ramo de erro do `json.Unmarshal` — o `msg` ali é zero-value, nunca dispara (`spotify.go:73`)
 - [ ] Sair da tela de auth ao concluir — `AuthModel.state` trava em `1` (`auth.go:70`)
 - [ ] Tratar retorno de `SpotifyProvider.Auth()` no `Update` do `AppModel` (`spotify.go:107`)
 - [ ] Proteger provider `nil` — escolher YouTube chama `Auth()` sobre `nil` (`app.go:190`)
@@ -105,11 +108,25 @@ Fazer de uma vez só, depois que auth, scrap e download estiverem funcionando.
 - [ ] Import do `worker.py` é implicitamente relativo (`from login import ...`) — só resolve porque o script roda de dentro de `internal/scripts/`. Decidir entre `PYTHONPATH`/`-m` ou manter
 - [ ] `login.py:20` tem default `credentials.json` relativo ao cwd do worker
 
+### Robustez
+
+Achados ao construir o music-player, que esbarra nos mesmos problemas.
+
+- [ ] Descartar a sessão do librespot quando ela morre — `start_saved_session()` faz `sys.exit(1)` em qualquer falha e não tenta reconectar (`scraper.py:14`, `downloader.py:14`). O access point do Spotify recusa conexão de vez em quando (`Errno 111`), e reconectar resolve. Piora depois da migração: com o worker vivo, uma sessão morta fica em cache até o app reiniciar
+- [ ] Parar o worker antigo antes de subir outro — `ConfigSavedMsg` chama `StartWorker` sem encerrar o anterior, deixando dois processos Python com duas sessões nas mesmas credenciais (`app.go:189`)
+- [ ] Guardar o `*exec.Cmd` no `SpotifyProvider` — hoje só o stdin é guardado, então não há como matar o worker (`spotify.go:18`)
+- [ ] Checar lista vazia antes do `enter` — `model.files[model.cursor]` estoura numa pasta sem arquivos (`files.go:45`)
+- [ ] Baixar para `.part` e renomear no fim — download interrompido deixa `.ogg` truncado e sem tag, que a detecção de duplicata não reconhece e vira cópia nova na próxima tentativa (`downloader.py:114`)
+- [ ] Tratar os erros engolidos — `scanner.Err()` e `cmd.Wait()` dentro de `if` vazio escondem falha do Python (`spotify.go:60`, `:80`, `:164`, `:191`, `:297`, `:299`)
+- [ ] Resolver a duplicação entre `downloading` e `screenDownloading` — são dois campos para o mesmo estado, e a `View` chega a desenhar `download.View()` duas vezes (`app.go:33` e `:282`)
+
 ### Ideias posteriores
 
 - [ ] Suporte para downloads do YouTube (estrutura já iniciada no código).
 - [ ] Melhorar o feedback de progresso dos downloads na interface.
 - [ ] Refatorar a comunicação de eventos Python -> Go.
+- [ ] Busca por texto na aba de busca — hoje ela só aceita URL, apesar do README prometer busca. Exige a Web API (`/v1/search`), que precisa de um app próprio no dashboard: o token que o librespot carrega vem de um `client_id` compartilhado por todos os usuários da lib e devolve `429 Too Many Requests` já na primeira chamada, com `Retry-After` de dezenas de segundos. Os endpoints que o projeto usa hoje (`session.api().get_playlist()`, `get_metadata_4_track()`) não passam por aí e não têm esse problema
+- [ ] Estilizar a TUI com lipgloss — última prioridade, só depois de auth, scrap e download funcionando
 
 ---
 **Aviso:** Este projeto é apenas para fins educacionais. Respeite os termos de serviço das plataformas e os direitos autorais dos artistas.

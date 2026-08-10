@@ -167,6 +167,9 @@ func (model AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.Event == "auth_done" && bridge.HasCredentials() {
 				model.current = screenSearch
 			}
+			if msg.Event == "error" {
+				model.current = screenAuth
+			}
 		} else {
 			model.feedback, cmd = model.feedback.Update(msg)
 		}

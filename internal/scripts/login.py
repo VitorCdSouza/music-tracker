@@ -63,7 +63,7 @@ def login_oauth(send_event, caminho_creds="credentials.json"):
             send_event("log", "login realizado")
             send_event("auth_done", f"credentials gravadas em: {caminho_creds}")
         except Exception as e:  # noqa: BLE001
-            send_event("error", f"falha ao criar credentials.json: {e}")
+            send_event("auth_error", f"falha ao criar credentials.json: {e}")
 
     cred_thread = threading.Thread(target=run_credentials)
     cred_thread.start()
